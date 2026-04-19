@@ -3,12 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   typescript: {
-    // Types are hand-maintained; production typecheck runs via `bun typecheck` in CI.
-    // See scripts/typegen.sh to regenerate from Supabase schema.
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   experimental: {
     serverActions: { bodySizeLimit: "25mb" },
