@@ -2,6 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "next build",
-  "installCommand": "bun install --frozen-lockfile",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)worker' ':(exclude)supabase' ':(exclude)docs'"
+  "installCommand": "bun install"
 }
