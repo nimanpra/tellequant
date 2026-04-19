@@ -1,7 +1,7 @@
-worker
-supabase
-docker-compose.yml
-docs
+/worker
+/supabase
+/docs
+/docker-compose.yml
 .env
 .env.*
 !.env.example
