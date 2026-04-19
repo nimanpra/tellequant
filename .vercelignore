@@ -1,0 +1,7 @@
+worker
+supabase
+docker-compose.yml
+docs
+.env
+.env.*
+!.env.example
