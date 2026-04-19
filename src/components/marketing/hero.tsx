@@ -47,7 +47,7 @@ export function Hero() {
           </div>
 
           <p className="mt-4 text-xs text-zinc-500">
-            Free forever for 100 inbound minutes/month · No credit card
+            Free demo chat · Bring your own keys · No credit card
           </p>
         </motion.div>
 
