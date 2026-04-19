@@ -23,6 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   return NextResponse.json({
     id: agent.id,
+    org_id: agent.org_id,
     name: agent.name,
     persona: agent.persona,
     opening_line: agent.opening_line,

@@ -66,3 +66,11 @@ class TellequantAPI:
 
     async def next_contact(self, campaign_id: str) -> dict[str, Any]:
         return await self._post(f"/api/campaigns/{campaign_id}/next", {})
+
+    async def fetch_org_keys(self, org_id: str) -> dict[str, Any]:
+        """Return {org_id, plan, plan_type, credits_balance_minutes, keys}.
+
+        `keys` is a flat dict of the decrypted provider keys (e.g. GROQ_API_KEY,
+        DEEPGRAM_API_KEY). Used at session start to authenticate BYOK calls.
+        """
+        return await self._post("/api/internal/org-keys", {"org_id": org_id})

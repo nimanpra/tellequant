@@ -175,6 +175,10 @@ class TellequantSession:
         agent = await self._api.get_agent_config(self._agent_id)
         logger.info(f"Starting call {self._call_id} with agent {agent['name']}")
 
+        # BYOK: fetch the org's own provider keys. Fall back to worker-global
+        # env vars only when a specific key is not configured for the org.
+        org_keys = await self._load_org_keys(agent.get("org_id"))
+
         serializer = TwilioFrameSerializer(self._stream_sid)
         transport = FastAPIWebsocketTransport(
             websocket=self._ws,
@@ -187,14 +191,19 @@ class TellequantSession:
             ),
         )
 
+        deepgram_key = org_keys.get("DEEPGRAM_API_KEY") or self._settings.deepgram_api_key
+        if not deepgram_key:
+            raise RuntimeError(
+                "No Deepgram API key available — set DEEPGRAM_API_KEY on the org or worker."
+            )
         stt = DeepgramSTTService(
-            api_key=self._settings.deepgram_api_key,
+            api_key=deepgram_key,
             model="nova-3",
             language="en",
         )
-        llm = self._build_llm(agent)
+        llm = self._build_llm(agent, org_keys)
         tts = DeepgramTTSService(
-            api_key=self._settings.deepgram_api_key,
+            api_key=deepgram_key,
             voice=agent["voice_id"],
         )
 
@@ -248,32 +257,51 @@ class TellequantSession:
         finally:
             await self._finalize()
 
-    def _build_llm(self, agent: dict[str, Any]):
+    def _build_llm(self, agent: dict[str, Any], org_keys: dict[str, str]):
         provider = (agent.get("llm_provider") or "groq").lower()
         model = agent["llm_model"]
         temperature = agent.get("temperature", 0.4)
 
+        def _key(name: str, fallback: str | None) -> str:
+            value = org_keys.get(name) or fallback
+            if not value:
+                raise RuntimeError(
+                    f"{name} is not configured for this org and no worker fallback is set. "
+                    "Add it on the Provider keys page."
+                )
+            return value
+
         if provider == "groq":
-            if not self._settings.groq_api_key:
-                raise RuntimeError("GROQ_API_KEY is not set")
             return OpenAILLMService(
-                api_key=self._settings.groq_api_key,
+                api_key=_key("GROQ_API_KEY", self._settings.groq_api_key),
                 model=model,
                 base_url="https://api.groq.com/openai/v1",
             )
         if provider == "openai":
-            if not self._settings.openai_api_key:
-                raise RuntimeError("OPENAI_API_KEY is not set")
-            return OpenAILLMService(api_key=self._settings.openai_api_key, model=model)
+            return OpenAILLMService(
+                api_key=_key("OPENAI_API_KEY", self._settings.openai_api_key),
+                model=model,
+            )
         if provider == "gemini":
-            if not self._settings.gemini_api_key:
-                raise RuntimeError("GEMINI_API_KEY is not set")
             return GoogleLLMService(
-                api_key=self._settings.gemini_api_key,
+                api_key=_key("GEMINI_API_KEY", self._settings.gemini_api_key),
                 model=model,
                 params=GoogleLLMService.InputParams(temperature=temperature),
             )
         raise RuntimeError(f"Unsupported llm_provider: {provider}")
+
+    async def _load_org_keys(self, org_id: str | None) -> dict[str, str]:
+        if not org_id:
+            return {}
+        try:
+            payload = await self._api.fetch_org_keys(org_id)
+        except Exception as err:  # noqa: BLE001
+            logger.warning(f"fetch_org_keys failed for {org_id}: {err}")
+            return {}
+        keys = payload.get("keys") or {}
+        if not isinstance(keys, dict):
+            return {}
+        return {str(k): str(v) for k, v in keys.items() if isinstance(v, str)}
 
     def _register_tool_handlers(self, llm, agent: dict[str, Any]) -> None:
         kb_id = agent.get("knowledge_base_id")

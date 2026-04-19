@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { PlanId } from "@/lib/billing/plans";
+import type { PlanId, PlanType } from "@/lib/billing/plans";
 
 interface UpgradeProps {
   intent: "upgrade";
   plan: PlanId;
+  planType: PlanType;
   highlight?: boolean;
   label: string;
 }
@@ -18,32 +19,37 @@ interface PortalProps {
 
 interface ContactProps {
   intent: "contact";
-  plan: PlanId;
   highlight?: boolean;
   label: string;
 }
 
 interface CurrentProps {
   intent: "current";
-  plan: PlanId;
   highlight?: boolean;
   label: string;
 }
 
-type Props = UpgradeProps | PortalProps | ContactProps | CurrentProps;
+interface CreditsProps {
+  intent: "credits";
+  pack: "credits_500" | "credits_2000" | "credits_10000";
+  highlight?: boolean;
+  label: string;
+}
+
+type Props = UpgradeProps | PortalProps | ContactProps | CurrentProps | CreditsProps;
 
 export function BillingActions(props: Props) {
   const [loading, setLoading] = useState(false);
 
-  async function upgrade(plan: PlanId) {
+  async function redirectToCheckout(body: unknown) {
     setLoading(true);
     try {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify(body),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.url) {
         toast.error(json.error ?? "Could not start checkout");
         return;
@@ -60,7 +66,7 @@ export function BillingActions(props: Props) {
     setLoading(true);
     try {
       const res = await fetch("/api/billing/portal", { method: "POST" });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.url) {
         toast.error(json.error ?? "Could not open portal");
         return;
@@ -96,7 +102,22 @@ export function BillingActions(props: Props) {
   if (props.intent === "contact") {
     return (
       <Button asChild variant="secondary" className="mt-6 w-full">
-        <a href="mailto:sales@tellequant.com?subject=Scale%20plan%20inquiry">{props.label}</a>
+        <a href="mailto:sales@tellequant.com?subject=Tellequant%20sales%20inquiry">
+          {props.label}
+        </a>
+      </Button>
+    );
+  }
+
+  if (props.intent === "credits") {
+    return (
+      <Button
+        variant={props.highlight ? "primary" : "secondary"}
+        className="mt-4 w-full"
+        onClick={() => redirectToCheckout({ kind: "credits", pack: props.pack })}
+        disabled={loading}
+      >
+        {loading ? "Redirecting…" : props.label}
       </Button>
     );
   }
@@ -105,7 +126,13 @@ export function BillingActions(props: Props) {
     <Button
       variant={props.highlight ? "primary" : "secondary"}
       className="mt-6 w-full"
-      onClick={() => upgrade(props.plan)}
+      onClick={() =>
+        redirectToCheckout({
+          kind: "subscription",
+          plan: props.plan,
+          planType: props.planType,
+        })
+      }
       disabled={loading}
     >
       {loading ? "Redirecting…" : props.label}

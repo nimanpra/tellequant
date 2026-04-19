@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { verifyWorkerRequest } from "@/lib/worker-auth";
+import { deductForCall } from "@/lib/billing/balance";
 
 const schema = z.object({
   call_id: z.string().uuid(),
@@ -45,12 +46,19 @@ export async function POST(req: Request) {
       metadata: body.metadata ?? {},
     })
     .eq("id", body.call_id)
-    .select("id, campaign_id, contact_id")
+    .select("id, org_id, campaign_id, contact_id")
     .single();
 
   if (error || !call) {
     return NextResponse.json({ error: error?.message ?? "not found" }, { status: 500 });
   }
+
+  // Deduct minutes against the org balance for cloud plans. Idempotent on call_id.
+  const deduction = await deductForCall(svc, {
+    orgId: call.org_id,
+    callId: call.id,
+    durationSeconds: body.duration_seconds,
+  });
 
   if (call.contact_id) {
     const contactStatus = body.status === "completed" ? "done" : "failed";
@@ -72,5 +80,9 @@ export async function POST(req: Request) {
       .eq("id", call.campaign_id);
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    deducted_minutes: deduction.deducted,
+    balance_after: deduction.balanceAfter,
+  });
 }

@@ -1,15 +1,45 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { canPlaceCall } from "@/lib/billing/balance";
+import {
+  reconstructExternalUrl,
+  resolveOrgKeysForNumber,
+  verifyTwilioSignature,
+} from "@/lib/telephony/verify";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const form = await req.formData();
-  const from = String(form.get("From") ?? "");
-  const to = String(form.get("To") ?? "");
-  const callSid = String(form.get("CallSid") ?? "");
+  const rawBody = await req.text();
+  const form = new URLSearchParams(rawBody);
+  const params: Record<string, string> = {};
+  for (const [k, v] of form.entries()) params[k] = v;
+
+  const from = params["From"] ?? "";
+  const to = params["To"] ?? "";
+  const callSid = params["CallSid"] ?? "";
 
   const svc = createSupabaseServiceClient();
+
+  const resolved = await resolveOrgKeysForNumber(svc, to);
+  if (!resolved) {
+    return twiml(
+      `<Response><Say voice="Polly.Joanna">This number is not configured. Goodbye.</Say><Hangup/></Response>`,
+    );
+  }
+
+  const authToken = resolved.keys.TWILIO_AUTH_TOKEN ?? process.env.TWILIO_AUTH_TOKEN ?? "";
+  if (authToken) {
+    const ok = verifyTwilioSignature({
+      url: reconstructExternalUrl(req),
+      params,
+      signature: req.headers.get("x-twilio-signature"),
+      authToken,
+    });
+    if (!ok) {
+      return new NextResponse("forbidden", { status: 403 });
+    }
+  }
 
   const { data: number } = await svc
     .from("phone_numbers")
@@ -20,7 +50,18 @@ export async function POST(req: Request) {
 
   if (!number?.agent_id) {
     return twiml(
-      `<Response><Say voice="Polly.Joanna">This number is not configured. Goodbye.</Say><Hangup/></Response>`
+      `<Response><Say voice="Polly.Joanna">This number is not configured. Goodbye.</Say><Hangup/></Response>`,
+    );
+  }
+
+  const decision = await canPlaceCall(svc, number.org_id);
+  if (!decision.allow) {
+    const message =
+      decision.reason === "cloud_plan_out_of_credits"
+        ? "This line is temporarily unavailable. Please try again later."
+        : "This number is not currently available. Goodbye.";
+    return twiml(
+      `<Response><Say voice="Polly.Joanna">${escapeXml(message)}</Say><Hangup/></Response>`,
     );
   }
 
@@ -53,7 +94,7 @@ export async function POST(req: Request) {
   const workerUrl = process.env.VOICE_WORKER_WS_URL;
   if (!workerUrl || !call) {
     return twiml(
-      `<Response><Say voice="Polly.Joanna">Voice worker unavailable. Please try again later.</Say><Hangup/></Response>`
+      `<Response><Say voice="Polly.Joanna">Voice worker unavailable. Please try again later.</Say><Hangup/></Response>`,
     );
   }
 

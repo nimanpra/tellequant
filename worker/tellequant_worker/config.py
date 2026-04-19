@@ -19,9 +19,17 @@ def _require(name: str) -> str:
 
 @dataclass(frozen=True)
 class Settings:
+    """Worker configuration.
+
+    Only the API base URL and the shared secret are required. Provider keys
+    (Deepgram, Groq, OpenAI, Twilio, Telnyx, ...) are BYOK: the worker fetches
+    them per-call from the Tellequant API using `fetch_org_keys`. Env-var
+    values are kept as optional fallbacks for single-tenant deployments.
+    """
+
     api_base_url: str
     shared_secret: str
-    deepgram_api_key: str
+    deepgram_api_key: str | None
     gemini_api_key: str | None
     groq_api_key: str | None
     cartesia_api_key: str | None
@@ -37,7 +45,7 @@ def load() -> Settings:
     return Settings(
         api_base_url=_require("TELLEQUANT_API_BASE_URL").rstrip("/"),
         shared_secret=_require("VOICE_WORKER_SHARED_SECRET"),
-        deepgram_api_key=_require("DEEPGRAM_API_KEY"),
+        deepgram_api_key=os.environ.get("DEEPGRAM_API_KEY"),
         gemini_api_key=os.environ.get("GEMINI_API_KEY"),
         groq_api_key=os.environ.get("GROQ_API_KEY"),
         cartesia_api_key=os.environ.get("CARTESIA_API_KEY"),

@@ -1,18 +1,38 @@
+# -----------------------------------------------------------------------------
+# Tellequant self-host compose file.
+#
+# The worker is the only container you need: it connects to the Tellequant
+# Next.js API and fetches your org's encrypted provider keys per call (BYOK).
+#
+#   cp worker/.env.example .env
+#   # edit TELLEQUANT_API_BASE_URL + VOICE_WORKER_SHARED_SECRET
+#   docker compose up -d
+#
+# The provider API keys (Deepgram, Groq, Telnyx, ...) are optional here —
+# configure them on the Provider keys page in the dashboard instead. Only set
+# them below if you want a single worker-wide fallback.
+# -----------------------------------------------------------------------------
+
 services:
   worker:
     build: ./worker
     restart: unless-stopped
     ports:
       - "8787:8787"
+    env_file:
+      - .env
     environment:
       TELLEQUANT_API_BASE_URL: ${TELLEQUANT_API_BASE_URL:-http://host.docker.internal:3000}
       VOICE_WORKER_SHARED_SECRET: ${VOICE_WORKER_SHARED_SECRET}
-      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      CARTESIA_API_KEY: ${CARTESIA_API_KEY:-}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      CARTESIA_API_KEY: ${CARTESIA_API_KEY:-}
+      TELNYX_API_KEY: ${TELNYX_API_KEY:-}
+      TELNYX_CONNECTION_ID: ${TELNYX_CONNECTION_ID:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       PORT: "8787"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8787/health"]

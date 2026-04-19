@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Play } from "lucide-react";
+import { MessageSquare, Play } from "lucide-react";
 import { AgentForm } from "@/components/dashboard/agent-form";
 import { Button } from "@/components/ui/button";
 import { requireOrg } from "@/lib/auth";
@@ -32,11 +32,18 @@ export default async function AgentDetailPage({
             {agent.name}
           </h1>
         </div>
-        <Button asChild variant="secondary">
-          <Link href={`/dashboard/agents/${agent.id}/test`}>
-            <Play className="h-4 w-4" /> Test live
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="secondary">
+            <Link href={`/dashboard/agents/${agent.id}/demo`}>
+              <MessageSquare className="h-4 w-4" /> Demo chat
+            </Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link href={`/dashboard/agents/${agent.id}/test`}>
+              <Play className="h-4 w-4" /> Test live
+            </Link>
+          </Button>
+        </div>
       </div>
       <AgentForm mode="edit" agent={agent} knowledgeBases={kbs ?? []} />
     </div>

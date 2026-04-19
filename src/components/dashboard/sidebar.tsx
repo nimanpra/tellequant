@@ -13,6 +13,7 @@ import {
   Settings,
   CreditCard,
   KeySquare,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
@@ -38,6 +39,7 @@ const groups: { label: string; items: { href: string; label: string; icon: typeo
   {
     label: "Workspace",
     items: [
+      { href: "/dashboard/settings/keys", label: "Provider keys", icon: Plug },
       { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
       { href: "/dashboard/api-keys", label: "API keys", icon: KeySquare },
       { href: "/dashboard/settings", label: "Settings", icon: Settings },
@@ -45,7 +47,13 @@ const groups: { label: string; items: { href: string; label: string; icon: typeo
   },
 ];
 
-export function Sidebar({ orgName }: { orgName: string }) {
+export interface SidebarBadge {
+  planLabel: string;
+  creditsRemaining: number;
+  planType: "self_host" | "cloud";
+}
+
+export function Sidebar({ orgName, badge }: { orgName: string; badge?: SidebarBadge }) {
   const path = usePathname();
   return (
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-white/[0.06] bg-[#0A0D14]/70 backdrop-blur-xl">
@@ -96,8 +104,14 @@ export function Sidebar({ orgName }: { orgName: string }) {
           href="/dashboard/billing"
           className="flex items-center justify-between rounded-lg border border-[#3E5CF8]/30 bg-[#3E5CF8]/10 px-3 py-2 text-xs text-[#98C9FF] transition-colors hover:bg-[#3E5CF8]/15"
         >
-          <span>Free plan · 23 / 100 min used</span>
-          <span className="font-medium">Upgrade →</span>
+          <span>
+            {badge
+              ? badge.planType === "cloud"
+                ? `${badge.planLabel} · ${badge.creditsRemaining.toLocaleString()} min left`
+                : `${badge.planLabel} · self-hosted`
+              : "Plan"}
+          </span>
+          <span className="font-medium">Manage →</span>
         </Link>
       </div>
     </aside>

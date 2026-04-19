@@ -10,7 +10,10 @@ export type Database = {
           slug: string;
           owner_id: string;
           created_at: string;
-          plan: "free" | "pro" | "scale";
+          plan: "free" | "solo" | "team" | "business" | "pro" | "scale";
+          plan_type: "self_host" | "cloud";
+          credits_balance_minutes: number;
+          provider_keys_encrypted: Json;
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
           subscription_status:
@@ -26,6 +29,28 @@ export type Database = {
         };
         Insert: Omit<Database["public"]["Tables"]["organizations"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["organizations"]["Insert"]>;
+      };
+      credit_ledger: {
+        Row: {
+          id: string;
+          org_id: string;
+          delta_minutes: number;
+          balance_after: number;
+          reason:
+            | "credit_pack"
+            | "subscription_grant"
+            | "call_usage"
+            | "overage_billed"
+            | "admin_adjustment"
+            | "signup_bonus";
+          stripe_payment_intent_id: string | null;
+          stripe_invoice_id: string | null;
+          call_id: string | null;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["credit_ledger"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["credit_ledger"]["Insert"]>;
       };
       memberships: {
         Row: {
@@ -206,12 +231,43 @@ export type Database = {
         Insert: Omit<Database["public"]["Tables"]["campaign_contacts"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["campaign_contacts"]["Insert"]>;
       };
+      demo_chat_sessions: {
+        Row: {
+          id: string;
+          org_id: string;
+          agent_id: string;
+          user_id: string | null;
+          messages: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["demo_chat_sessions"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<Database["public"]["Tables"]["demo_chat_sessions"]["Insert"]>;
+      };
     };
     Views: Record<string, never>;
     Functions: {
       match_chunks: {
         Args: { query_embedding: number[]; kb_id: string; match_count?: number };
         Returns: Array<{ id: string; document_id: string; content: string; similarity: number }>;
+      };
+      deduct_credits: {
+        Args: { p_org_id: string; p_minutes: number; p_call_id: string | null; p_reason?: string };
+        Returns: number;
+      };
+      grant_credits: {
+        Args: {
+          p_org_id: string;
+          p_minutes: number;
+          p_reason: string;
+          p_stripe_payment_intent_id?: string | null;
+          p_stripe_invoice_id?: string | null;
+          p_note?: string | null;
+        };
+        Returns: number;
       };
     };
     Enums: Record<string, never>;
